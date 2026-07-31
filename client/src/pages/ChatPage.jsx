@@ -1,0 +1,179 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
+import { format } from 'date-fns';
+import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import PageBanner from '../components/PageBanner';
+
+export default function ChatPage() {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [body, setBody] = useState('');
+  const [counselors, setCounselors] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [partnerId, setPartnerId] = useState('');
+  const activeIdRef = useRef(null);
+
+  const socket = useMemo(() => {
+    const token = localStorage.getItem('kstu_token');
+    return io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
+      auth: { token },
+      autoConnect: false
+    });
+  }, []);
+
+  async function loadConversations() {
+    const { data } = await api.get('/chat/conversations');
+    setConversations(data.conversations || []);
+    setActiveId((current) => current || data.conversations?.[0]?.id || null);
+  }
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  useEffect(() => {
+    loadConversations();
+    if (user.role === 'student') {
+      api.get('/admin/counselors').then((res) => setCounselors(res.data.counselors || []));
+    } else {
+      api.get('/clients').then((res) => {
+        const unique = [];
+        for (const client of res.data.clients || []) {
+          if (!unique.find((s) => s.id === client.student_id)) {
+            unique.push({ id: client.student_id, full_name: client.student_name });
+          }
+        }
+        setStudents(unique);
+      });
+    }
+
+    socket.connect();
+    socket.on('new_message', (message) => {
+      setMessages((prev) => {
+        if (message.conversation_id !== activeIdRef.current) return prev;
+        if (prev.some((m) => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
+      loadConversations();
+    });
+
+    return () => {
+      socket.off('new_message');
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeId) return;
+    socket.emit('join_conversation', activeId);
+    api.get(`/chat/conversations/${activeId}/messages`).then((res) => {
+      setMessages(res.data.messages || []);
+    });
+  }, [activeId]);
+
+  async function startConversation(e) {
+    e.preventDefault();
+    if (!partnerId) return;
+    const payload =
+      user.role === 'student'
+        ? { counselor_id: Number(partnerId) }
+        : { student_id: Number(partnerId) };
+    const { data } = await api.post('/chat/conversations', payload);
+    setActiveId(data.conversation.id);
+    loadConversations();
+  }
+
+  function sendMessage(e) {
+    e.preventDefault();
+    if (!body.trim() || !activeId) return;
+    socket.emit('send_message', { conversationId: activeId, body }, (response) => {
+      if (response?.ok) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === response.message.id) ? prev : [...prev, response.message]
+        );
+        setBody('');
+        loadConversations();
+      }
+    });
+  }
+
+  const active = conversations.find((c) => c.id === activeId);
+
+  return (
+    <div>
+      <PageBanner
+        image="/images/private-chat.jpg"
+        title="Secure chat"
+        subtitle="Real-time messaging between students and counselors."
+      />
+
+      <form className="panel inline-actions" onSubmit={startConversation} style={{ marginBottom: '1rem' }}>
+        <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} required>
+          <option value="">
+            {user.role === 'student' ? 'Select counselor' : 'Select student'}
+          </option>
+          {(user.role === 'student' ? counselors : students).map((person) => (
+            <option key={person.id} value={person.id}>
+              {person.full_name}
+            </option>
+          ))}
+        </select>
+        <button className="btn btn-primary">Start / open chat</button>
+      </form>
+
+      <div className="chat-layout">
+        <div className="panel chat-list">
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              className={`chat-item ${conv.id === activeId ? 'active' : ''}`}
+              onClick={() => setActiveId(conv.id)}
+            >
+              <strong>
+                {user.role === 'student' ? conv.counselor_name : conv.student_name}
+              </strong>
+              <div className="muted">{conv.last_message || 'No messages yet'}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="chat-pane">
+          <div style={{ padding: '1rem', borderBottom: '1px solid var(--line)' }}>
+            <strong>
+              {active
+                ? user.role === 'student'
+                  ? active.counselor_name
+                  : active.student_name
+                : 'Select a conversation'}
+            </strong>
+          </div>
+          <div className="messages">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`bubble ${message.sender_id === user.id ? 'mine' : ''}`}
+              >
+                <div>{message.body}</div>
+                <small>{format(new Date(message.created_at), 'HH:mm')}</small>
+              </div>
+            ))}
+          </div>
+          <form className="chat-input" onSubmit={sendMessage}>
+            <input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Type a confidential message..."
+              disabled={!activeId}
+            />
+            <button className="btn btn-primary" disabled={!activeId}>
+              Send
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,35 @@
+{
+  "name": "kstu-counseling-server",
+  "version": "1.0.0",
+  "description": "API for the KSTU Smart Web-Based Counseling Platform",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/seed.js"
+  },
+  "keywords": [
+    "kstu",
+    "counseling",
+    "express"
+  ],
+  "author": "Cleopas Kwame Obbo",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.2",
+    "nodemailer": "^9.0.3",
+    "peer": "^1.0.2",
+    "peerjs": "^1.5.5",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
