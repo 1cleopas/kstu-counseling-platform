@@ -28,11 +28,19 @@ export default function VideoSession() {
 
         const roomId = `kstu-appt-${appointmentId}`;
         const myId = `${roomId}-${user.role}-${user.id}`;
+        const peerHost = import.meta.env.VITE_PEER_HOST || window.location.hostname;
+        const peerPort = Number(
+          import.meta.env.VITE_PEER_PORT || (window.location.protocol === 'https:' ? 443 : 5000)
+        );
+        const peerSecure =
+          String(
+            import.meta.env.VITE_PEER_SECURE || (window.location.protocol === 'https:')
+          ).toLowerCase() === 'true';
         const peer = new Peer(myId, {
-          host: 'localhost',
-          port: 5000,
+          host: peerHost === 'localhost' ? 'localhost' : peerHost,
+          port: peerHost === 'localhost' ? 5000 : peerPort,
           path: '/peerjs',
-          secure: false
+          secure: peerHost === 'localhost' ? false : peerSecure
         });
         peerRef.current = peer;
 

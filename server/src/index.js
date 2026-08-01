@@ -20,7 +20,14 @@ const clientUrls = (process.env.CLIENT_URL || 'http://localhost:5173,http://loca
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || clientUrls.includes(origin) || process.env.NODE_ENV !== 'production') {
+      const allowed =
+        !origin ||
+        clientUrls.includes(origin) ||
+        /\.vercel\.app$/i.test(origin) ||
+        /\.loca\.lt$/i.test(origin) ||
+        /\.trycloudflare\.com$/i.test(origin) ||
+        process.env.NODE_ENV !== 'production';
+      if (allowed) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS'));
@@ -52,7 +59,16 @@ app.use((err, _req, res, _next) => {
 
 const io = new Server(server, {
   cors: {
-    origin: clientUrls,
+    origin: (origin, callback) => {
+      const allowed =
+        !origin ||
+        clientUrls.includes(origin) ||
+        /\.vercel\.app$/i.test(origin) ||
+        /\.loca\.lt$/i.test(origin) ||
+        /\.trycloudflare\.com$/i.test(origin) ||
+        process.env.NODE_ENV !== 'production';
+      callback(null, allowed);
+    },
     methods: ['GET', 'POST']
   }
 });
@@ -65,7 +81,45 @@ const peerServer = ExpressPeerServer(server, {
 app.use('/peerjs', peerServer);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`KSTU Counseling API running on http://localhost:${PORT}`);
-  console.log(`PeerJS signaling available at http://localhost:${PORT}/peerjs`);
+
+async function ensureDatabase() {
+  try {
+    const db = require('./config/db');
+    if (db.driver === 'sqlite') {
+      const { schema } = require('./db/sqliteSchema');
+      db.exec(schema);
+      const users = await db.query('SELECT COUNT(*) AS count FROM users');
+      const count = Number(users?.[0]?.count || 0);
+      if (count === 0) {
+        const bcrypt = require('bcryptjs');
+        const passwordHash = await bcrypt.hash('Password123!', 10);
+        await db.query(
+          `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
+           VALUES (:student_id, :full_name, :email, :password_hash, :role, :phone, :department, :programme, :specialization, :bio)`,
+          {
+            student_id: '052241360117',
+            full_name: 'Cleopas Kwame Obbo',
+            email: 'cleopas@student.kstu.edu.gh',
+            password_hash: passwordHash,
+            role: 'student',
+            phone: '0200000004',
+            department: 'Computer Science',
+            programme: 'Computer Technology',
+            specialization: null,
+            bio: null
+          }
+        );
+        console.log('Seeded Cleopas student account');
+      }
+    }
+  } catch (error) {
+    console.error('Database bootstrap failed:', error.message);
+  }
+}
+
+ensureDatabase().then(() => {
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`KSTU Counseling API running on port ${PORT}`);
+    console.log(`PeerJS signaling available at /peerjs`);
+  });
 });
