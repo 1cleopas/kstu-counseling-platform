@@ -27,6 +27,14 @@ app.use(
       if (!origin || clientUrls.includes(origin) || process.env.NODE_ENV !== 'production') {
         return callback(null, true);
       }
+      try {
+        const host = new URL(origin).hostname;
+        if (host.endsWith('.vercel.app') || host === 'kstu-counseling-platform.vercel.app') {
+          return callback(null, true);
+        }
+      } catch {
+        // ignore invalid origin
+      }
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true
@@ -70,7 +78,20 @@ app.use((err, _req, res, _next) => {
 
 const io = new Server(server, {
   cors: {
-    origin: clientUrls.length ? clientUrls : true,
+    origin(origin, callback) {
+      if (!origin || clientUrls.includes(origin) || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      try {
+        const host = new URL(origin).hostname;
+        if (host.endsWith('.vercel.app')) {
+          return callback(null, true);
+        }
+      } catch {
+        // ignore
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST']
   }
 });
