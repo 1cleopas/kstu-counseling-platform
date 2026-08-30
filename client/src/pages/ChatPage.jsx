@@ -18,7 +18,7 @@ export default function ChatPage() {
 
   const socket = useMemo(() => {
     const token = localStorage.getItem('kstu_token');
-    return io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
+    return io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
       auth: { token },
       autoConnect: false
     });

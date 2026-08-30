@@ -8,7 +8,12 @@
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "seed": "npm run seed --prefix server",
-    "build": "npm run build --prefix client"
+    "build": "npm run build --prefix client",
+    "start": "npm run start --prefix server",
+    "build:deploy": "npm run install:all && npm run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "author": "Cleopas Kwame Obbo",
   "license": "MIT",
