@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
+import PasswordInput from '../../components/PasswordInput';
 
 const emptyForm = {
   full_name: '',
@@ -73,10 +74,11 @@ export default function AdminUsers() {
           </label>
           <label>
             Password
-            <input
+            <PasswordInput
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
+              autoComplete="new-password"
             />
           </label>
           <label>

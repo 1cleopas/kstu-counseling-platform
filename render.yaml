@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: kstu-counseling-platform
+    name: kstu-counseling-api
     runtime: node
     plan: free
     region: oregon
     branch: master
-    buildCommand: npm run build:deploy
-    startCommand: npm start
+    buildCommand: npm install --prefix server
+    startCommand: npm start --prefix server
     envVars:
       - key: NODE_ENV
         value: production
