@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Peer } from 'peerjs';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -26,17 +26,37 @@ function roomPeerId(appointmentId, role, userId) {
 export default function VideoSession() {
   const { appointmentId } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
   const streamRef = useRef(null);
+  const retryTimerRef = useRef(null);
   const [partnerName, setPartnerName] = useState('your counseling partner');
   const [status, setStatus] = useState('Connecting camera...');
   const [error, setError] = useState('');
+  const [ended, setEnded] = useState(false);
+
+  function stopMedia() {
+    clearInterval(retryTimerRef.current);
+    retryTimerRef.current = null;
+    peerRef.current?.destroy();
+    peerRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  }
+
+  function endSession() {
+    stopMedia();
+    setEnded(true);
+    setStatus('Session ended');
+    navigate(user.role === 'student' ? '/app/appointments' : '/app/counselor-appointments');
+  }
 
   useEffect(() => {
     let destroyed = false;
-    let retryTimer;
     const connectedRef = { current: false };
 
     async function start() {
@@ -102,7 +122,8 @@ export default function VideoSession() {
             remoteVideoRef.current.play?.().catch(() => {});
           }
           setStatus('Connected');
-          clearInterval(retryTimer);
+          clearInterval(retryTimerRef.current);
+          retryTimerRef.current = null;
         }
 
         peer.on('open', () => {
@@ -110,7 +131,7 @@ export default function VideoSession() {
           setStatus('Camera ready. Waiting for the other person to join...');
           if (shouldCall) {
             callPartner();
-            retryTimer = setInterval(callPartner, 4000);
+            retryTimerRef.current = setInterval(callPartner, 4000);
           }
         });
 
@@ -136,9 +157,7 @@ export default function VideoSession() {
 
     return () => {
       destroyed = true;
-      clearInterval(retryTimer);
-      peerRef.current?.destroy();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      stopMedia();
     };
   }, [appointmentId, user.id, user.role]);
 
@@ -164,9 +183,14 @@ export default function VideoSession() {
             <video ref={remoteVideoRef} autoPlay playsInline />
           </div>
         </div>
+        <div className="inline-actions" style={{ marginTop: '1rem' }}>
+          <button className="btn btn-danger" type="button" onClick={endSession} disabled={ended}>
+            End session
+          </button>
+        </div>
         <p className="muted">
           Both people click Join video / Start video for the same appointment. Allow camera and microphone.
-          The call connects automatically when both are on this page.
+          The call connects automatically when both are on this page. Use End session to hang up and turn off your camera.
         </p>
       </div>
     </div>
