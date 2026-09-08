@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
   specialization TEXT NULL,
   bio TEXT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
+  password_reset_token TEXT NULL,
+  password_reset_expires TEXT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

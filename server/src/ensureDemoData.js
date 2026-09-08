@@ -96,7 +96,19 @@ async function ensureDemoData() {
     db.exec(schema);
   }
 
+  await ensurePasswordResetColumns(db);
   await ensureDemoAccounts(db);
+}
+
+async function ensurePasswordResetColumns(db) {
+  const columns = await db.query('PRAGMA table_info(users)');
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has('password_reset_token')) {
+    db.exec('ALTER TABLE users ADD COLUMN password_reset_token TEXT');
+  }
+  if (!names.has('password_reset_expires')) {
+    db.exec('ALTER TABLE users ADD COLUMN password_reset_expires TEXT');
+  }
 }
 
 module.exports = {

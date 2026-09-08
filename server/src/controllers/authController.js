@@ -1,6 +1,15 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/db');
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
 
 function signToken(user) {
   return jwt.sign(
@@ -126,6 +135,89 @@ async function me(req, res) {
   }
 }
 
+async function forgotPassword(req, res) {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const studentId = String(req.body.student_id || '').trim();
+    const phone = String(req.body.phone || '').trim();
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const rows = await query('SELECT * FROM users WHERE lower(email) = :email AND is_active = 1', { email });
+    const user = rows[0];
+    if (!user) {
+      return res.status(400).json({ message: 'We could not verify that account.' });
+    }
+
+    const identityOk =
+      user.role === 'student'
+        ? Boolean(studentId) && studentId === String(user.student_id || '')
+        : Boolean(phone) && normalizePhone(phone) === normalizePhone(user.phone);
+
+    if (!identityOk) {
+      return res.status(400).json({
+        message:
+          user.role === 'student'
+            ? 'Email and student ID did not match.'
+            : 'Email and phone number did not match.'
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await query(
+      `UPDATE users SET password_reset_token = :token, password_reset_expires = :expires WHERE id = :id`,
+      { id: user.id, token: hashResetToken(token), expires }
+    );
+
+    return res.json({ token, message: 'Identity verified. Set a new password.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ message: 'Could not start password reset' });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const token = String(req.body.token || '');
+    const password = String(req.body.password || '');
+
+    if (!token || password.length < 8) {
+      return res.status(400).json({ message: 'A valid reset token and an 8+ character password are required' });
+    }
+
+    const tokenHash = hashResetToken(token);
+    const now = new Date().toISOString();
+    const rows = await query(
+      `SELECT id FROM users
+       WHERE password_reset_token = :tokenHash
+         AND password_reset_expires IS NOT NULL
+         AND password_reset_expires > :now
+         AND is_active = 1`,
+      { tokenHash, now }
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ message: 'This reset link is invalid or has expired' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    await query(
+      `UPDATE users
+       SET password_hash = :password_hash, password_reset_token = NULL, password_reset_expires = NULL
+       WHERE id = :id`,
+      { id: rows[0].id, password_hash }
+    );
+
+    return res.json({ message: 'Password updated. You can sign in now.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ message: 'Could not reset password' });
+  }
+}
+
 async function updateProfile(req, res) {
   try {
     const { full_name, phone, department, programme, specialization, bio } = req.body;
@@ -155,4 +247,4 @@ async function updateProfile(req, res) {
   }
 }
 
-module.exports = { register, login, me, updateProfile };
+module.exports = { register, login, me, updateProfile, forgotPassword, resetPassword };
