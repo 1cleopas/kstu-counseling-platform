@@ -113,6 +113,30 @@ async function setUserActive(req, res) {
   }
 }
 
+async function setUserPassword(req, res) {
+  try {
+    const password = String(req.body.password || '');
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const users = await query('SELECT id, full_name FROM users WHERE id = :id', { id: req.params.id });
+    if (!users.length) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    await query(`UPDATE users SET password_hash = :password_hash WHERE id = :id`, {
+      id: req.params.id,
+      password_hash
+    });
+    return res.json({ message: `Password updated for ${users[0].full_name}` });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Could not update password' });
+  }
+}
+
 async function listCounselors(req, res) {
   try {
     const counselors = await query(
@@ -127,4 +151,4 @@ async function listCounselors(req, res) {
   }
 }
 
-module.exports = { dashboard, listUsers, createUser, setUserActive, listCounselors };
+module.exports = { dashboard, listUsers, createUser, setUserActive, setUserPassword, listCounselors };

@@ -19,6 +19,9 @@ export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [passwordUser, setPasswordUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
 
   async function load() {
     const { data } = await api.get('/admin/users');
@@ -31,15 +34,39 @@ export default function AdminUsers() {
 
   async function createUser(e) {
     e.preventDefault();
-    await api.post('/admin/users', form);
-    setForm(emptyForm);
-    setMessage('User created successfully');
-    load();
+    setError('');
+    try {
+      await api.post('/admin/users', form);
+      setForm(emptyForm);
+      setMessage('User created successfully');
+      load();
+    } catch (err) {
+      setMessage('');
+      setError(err.response?.data?.message || 'Could not create user');
+    }
   }
 
   async function toggleActive(user) {
+    setError('');
     await api.patch(`/admin/users/${user.id}/active`, { is_active: !user.is_active });
     load();
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    if (!passwordUser) return;
+    setError('');
+    try {
+      const { data } = await api.patch(`/admin/users/${passwordUser.id}/password`, {
+        password: newPassword
+      });
+      setMessage(data.message || 'Password updated');
+      setPasswordUser(null);
+      setNewPassword('');
+    } catch (err) {
+      setMessage('');
+      setError(err.response?.data?.message || 'Could not update password');
+    }
   }
 
   return (
@@ -47,10 +74,11 @@ export default function AdminUsers() {
       <PageBanner
         image="/images/university-campus.jpg"
         title="User management"
-        subtitle="Create counselor/admin accounts and manage platform access."
+        subtitle="Create accounts, change passwords, and manage platform access."
       />
 
       {message && <div className="success">{message}</div>}
+      {error && <div className="error">{error}</div>}
 
       <div className="dual">
         <form className="panel form-grid" onSubmit={createUser}>
@@ -121,9 +149,23 @@ export default function AdminUsers() {
                     <span className="badge">{user.is_active ? 'active' : 'inactive'}</span>
                   </td>
                   <td>
-                    <button className="btn btn-secondary" onClick={() => toggleActive(user)}>
-                      {user.is_active ? 'Disable' : 'Enable'}
-                    </button>
+                    <div className="inline-actions">
+                      <button className="btn btn-secondary" type="button" onClick={() => toggleActive(user)}>
+                        {user.is_active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        type="button"
+                        onClick={() => {
+                          setPasswordUser(user);
+                          setNewPassword('');
+                          setError('');
+                          setMessage('');
+                        }}
+                      >
+                        Change password
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -131,6 +173,40 @@ export default function AdminUsers() {
           </table>
         </div>
       </div>
+
+      {passwordUser ? (
+        <form className="panel form-grid" onSubmit={changePassword} style={{ marginTop: '1.25rem' }}>
+          <h3>Change password</h3>
+          <p className="muted">
+            Set a new password for <strong>{passwordUser.full_name}</strong> ({passwordUser.email}).
+          </p>
+          <label>
+            New password
+            <PasswordInput
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
+          </label>
+          <div className="inline-actions">
+            <button className="btn btn-primary" type="submit">
+              Save password
+            </button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => {
+                setPasswordUser(null);
+                setNewPassword('');
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }
