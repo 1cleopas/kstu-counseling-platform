@@ -11,6 +11,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: NODE_VERSION
+        value: "22.16.0"
       - key: DB_DRIVER
         value: sqlite
       - key: JWT_SECRET

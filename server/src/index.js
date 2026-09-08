@@ -103,19 +103,18 @@ initChatSocket(io);
 
 const PORT = process.env.PORT || 5000;
 
-ensureDemoData()
-  .catch((error) => {
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Stop the other process, then run npm run dev:server again.`);
+    process.exit(1);
+  }
+  console.error('HTTP server error:', error);
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`KSTU Counseling API running on http://0.0.0.0:${PORT}`);
+  console.log(`PeerJS signaling available at http://0.0.0.0:${PORT}/peerjs`);
+  ensureDemoData().catch((error) => {
     console.error('Demo data setup failed:', error.message);
-  })
-  .finally(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`KSTU Counseling API running on http://localhost:${PORT}`);
-      console.log(`PeerJS signaling available at http://localhost:${PORT}/peerjs`);
-    }).on('error', (error) => {
-      if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Stop the other process, then run npm run dev:server again.`);
-        process.exit(1);
-      }
-      throw error;
-    });
   });
+});
