@@ -42,7 +42,7 @@ export default function StudentDashboard() {
         </div>
         <div className="stat-card">
           <span>Unread notices</span>
-          <strong>{notifications.filter((n) => !n.is_read).length}</strong>
+          <strong>{notifications.filter((n) => Number(n.is_read) === 0).length}</strong>
         </div>
       </div>
 

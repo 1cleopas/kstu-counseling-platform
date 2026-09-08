@@ -5,7 +5,7 @@ const fs = require('fs');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const KEEP_EMAIL = 'cleopas@student.kstu.edu.gh';
+const { STUDENT_EMAIL, COUNSELOR_EMAIL, DEMO_PASSWORD } = require('./ensureDemoData');
 
 async function seedMysql() {
   const mysql = require('mysql2/promise');
@@ -35,14 +35,14 @@ async function seedMysql() {
   }
   await connection.query('SET FOREIGN_KEY_CHECKS = 1');
 
-  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   await connection.execute(
     `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       '052241360117',
       'Cleopas Kwame Obbo',
-      KEEP_EMAIL,
+      STUDENT_EMAIL,
       passwordHash,
       'student',
       '0200000004',
@@ -52,8 +52,30 @@ async function seedMysql() {
       null
     ]
   );
+  const [studentRows] = await connection.execute('SELECT id FROM users WHERE email = ?', [STUDENT_EMAIL]);
+  await connection.execute(
+    `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      null,
+      'Dr. Emily',
+      COUNSELOR_EMAIL,
+      passwordHash,
+      'counselor',
+      '0200000005',
+      'Counseling Unit',
+      null,
+      'Student Support',
+      'KSTU Counseling Unit counselor.'
+    ]
+  );
+  const [counselorRows] = await connection.execute('SELECT id FROM users WHERE email = ?', [COUNSELOR_EMAIL]);
+  await connection.execute(
+    `INSERT INTO client_profiles (student_id, counselor_id, status) VALUES (?, ?, 'active')`,
+    [studentRows[0].id, counselorRows[0].id]
+  );
 
-  console.log('MySQL schema applied. Only Cleopas student account retained.');
+  console.log('MySQL schema applied with student and counselor demo accounts.');
   await connection.end();
 }
 
@@ -62,7 +84,7 @@ async function seedSqlite() {
   const { schema } = require('./db/sqliteSchema');
   const dataDir = path.join(__dirname, '..', 'data');
   fs.mkdirSync(dataDir, { recursive: true });
-  const dbPath = process.env.SQLITE_PATH || path.join(dataDir, 'kstu_counseling.db');
+  const dbPath = path.join(dataDir, 'kstu_counseling.db');
 
   let db;
   if (fs.existsSync(dbPath)) {
@@ -94,14 +116,15 @@ async function seedSqlite() {
     db.exec(schema);
   }
 
-  const passwordHash = await bcrypt.hash('Password123!', 10);
-  db.prepare(
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const insertUser = db.prepare(
     `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
      VALUES (@student_id, @full_name, @email, @password_hash, @role, @phone, @department, @programme, @specialization, @bio)`
-  ).run({
+  );
+  const student = insertUser.run({
     student_id: '052241360117',
     full_name: 'Cleopas Kwame Obbo',
-    email: KEEP_EMAIL,
+    email: STUDENT_EMAIL,
     password_hash: passwordHash,
     role: 'student',
     phone: '0200000004',
@@ -110,9 +133,23 @@ async function seedSqlite() {
     specialization: null,
     bio: null
   });
+  const counselor = insertUser.run({
+    student_id: null,
+    full_name: 'Dr. Emily',
+    email: COUNSELOR_EMAIL,
+    password_hash: passwordHash,
+    role: 'counselor',
+    phone: '0200000005',
+    department: 'Counseling Unit',
+    programme: null,
+    specialization: 'Student Support',
+    bio: 'KSTU Counseling Unit counselor.'
+  });
+  db.prepare(
+    `INSERT INTO client_profiles (student_id, counselor_id, status) VALUES (?, ?, 'active')`
+  ).run(student.lastInsertRowid, counselor.lastInsertRowid);
 
   console.log(`SQLite database ready at ${dbPath}`);
-  console.log('Only Cleopas student account retained. Demo appointments and other users cleared.');
   db.close();
 }
 
@@ -124,8 +161,9 @@ async function run() {
     await seedSqlite();
   }
 
-  console.log(`Login: ${KEEP_EMAIL}`);
-  console.log('Password: Password123!');
+  console.log(`Student login: ${STUDENT_EMAIL}`);
+  console.log(`Counselor login: ${COUNSELOR_EMAIL}`);
+  console.log(`Password: ${DEMO_PASSWORD}`);
 }
 
 run().catch((error) => {

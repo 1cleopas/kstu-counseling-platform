@@ -30,6 +30,9 @@ export default function CounselorDashboard() {
         <Link className="btn btn-primary" to="/app/clients">
           Open client list
         </Link>
+        <Link className="btn btn-secondary" to="/app/reports">
+          Generate reports
+        </Link>
       </PageBanner>
 
       <div className="stats-grid">
@@ -39,7 +42,7 @@ export default function CounselorDashboard() {
         </div>
         <div className="stat-card">
           <span>Assigned clients</span>
-          <strong>{clients.filter((c) => c.counselor_id === user.id).length}</strong>
+          <strong>{clients.filter((c) => Number(c.counselor_id) === Number(user.id)).length}</strong>
         </div>
         <div className="stat-card">
           <span>All appointments</span>

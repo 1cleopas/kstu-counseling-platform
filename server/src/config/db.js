@@ -30,7 +30,7 @@ if (dbDriver === 'mysql') {
   const Database = require('better-sqlite3');
   const dataDir = path.join(__dirname, '..', '..', 'data');
   fs.mkdirSync(dataDir, { recursive: true });
-  const dbPath = process.env.SQLITE_PATH || path.join(dataDir, 'kstu_counseling.db');
+  const dbPath = path.join(dataDir, 'kstu_counseling.db');
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');

@@ -18,7 +18,7 @@ export default function ChatPage() {
 
   const socket = useMemo(() => {
     const token = localStorage.getItem('kstu_token');
-    return io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
+    return io(import.meta.env.DEV ? window.location.origin : import.meta.env.VITE_SOCKET_URL || window.location.origin, {
       auth: { token },
       autoConnect: false
     });
@@ -53,7 +53,7 @@ export default function ChatPage() {
     socket.connect();
     socket.on('new_message', (message) => {
       setMessages((prev) => {
-        if (message.conversation_id !== activeIdRef.current) return prev;
+        if (Number(message.conversation_id) !== Number(activeIdRef.current)) return prev;
         if (prev.some((m) => m.id === message.id)) return prev;
         return [...prev, message];
       });
@@ -100,7 +100,7 @@ export default function ChatPage() {
     });
   }
 
-  const active = conversations.find((c) => c.id === activeId);
+  const active = conversations.find((c) => Number(c.id) === Number(activeId));
 
   return (
     <div>
@@ -129,7 +129,7 @@ export default function ChatPage() {
           {conversations.map((conv) => (
             <button
               key={conv.id}
-              className={`chat-item ${conv.id === activeId ? 'active' : ''}`}
+              className={`chat-item ${Number(conv.id) === Number(activeId) ? 'active' : ''}`}
               onClick={() => setActiveId(conv.id)}
             >
               <strong>
@@ -154,7 +154,7 @@ export default function ChatPage() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`bubble ${message.sender_id === user.id ? 'mine' : ''}`}
+                className={`bubble ${Number(message.sender_id) === Number(user.id) ? 'mine' : ''}`}
               >
                 <div>{message.body}</div>
                 <small>{format(new Date(message.created_at), 'HH:mm')}</small>

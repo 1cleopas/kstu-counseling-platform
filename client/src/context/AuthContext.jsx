@@ -3,6 +3,20 @@ import api from '../api/client';
 
 const AuthContext = createContext(null);
 
+function userFromToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return {
+      id: payload.id,
+      role: payload.role,
+      full_name: payload.full_name,
+      email: payload.email
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,9 +31,13 @@ export function AuthProvider({ children }) {
     api
       .get('/auth/me')
       .then((res) => setUser(res.data.user))
-      .catch(() => {
-        localStorage.removeItem('kstu_token');
-        setUser(null);
+      .catch((err) => {
+        if (err.response?.status === 401) {
+          localStorage.removeItem('kstu_token');
+          setUser(null);
+          return;
+        }
+        setUser(userFromToken(token));
       })
       .finally(() => setLoading(false));
   }, []);

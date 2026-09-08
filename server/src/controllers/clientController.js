@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { sameId } = require('../utils/ids');
 
 async function listClients(req, res) {
   try {
@@ -49,10 +50,7 @@ async function getClient(req, res) {
     }
 
     const client = clients[0];
-    if (
-      req.user.role === 'student' &&
-      client.student_id !== req.user.id
-    ) {
+    if (req.user.role === 'student' && !sameId(client.student_id, req.user.id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

@@ -11,6 +11,7 @@ import CounselorDashboard from './pages/counselor/CounselorDashboard';
 import ClientList from './pages/counselor/ClientList';
 import ClientDetail from './pages/counselor/ClientDetail';
 import CounselorAppointments from './pages/counselor/CounselorAppointments';
+import ReportsPage from './pages/counselor/ReportsPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import ChatPage from './pages/ChatPage';
@@ -55,6 +56,8 @@ export default function App() {
         <Route path="clients" element={<Protected roles={['counselor', 'admin']}><ClientList /></Protected>} />
         <Route path="clients/:id" element={<Protected roles={['counselor', 'admin']}><ClientDetail /></Protected>} />
         <Route path="counselor-appointments" element={<Protected roles={['counselor', 'admin']}><CounselorAppointments /></Protected>} />
+        <Route path="reports" element={<Protected roles={['counselor', 'admin']}><ReportsPage /></Protected>} />
+        <Route path="reports/clients/:id" element={<Protected roles={['counselor', 'admin']}><ReportsPage /></Protected>} />
         <Route path="admin/users" element={<Protected roles={['admin']}><AdminUsers /></Protected>} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="video/:appointmentId" element={<VideoSession />} />

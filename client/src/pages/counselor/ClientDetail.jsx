@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
@@ -71,7 +71,11 @@ export default function ClientDetail() {
         image="/images/calm-counseling.jpg"
         title={client.student_name}
         subtitle={`${client.student_number} · ${client.programme || client.department || 'Student client'}`}
-      />
+      >
+        <Link className="btn btn-secondary" to={`/app/reports?client=${client.id}`}>
+          Student summary report
+        </Link>
+      </PageBanner>
 
       {message && <div className="success">{message}</div>}
 

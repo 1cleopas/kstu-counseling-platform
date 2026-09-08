@@ -1,5 +1,6 @@
 const { query } = require('../config/db');
 const { createNotification } = require('../utils/notify');
+const { sameId } = require('../utils/ids');
 
 async function listAppointments(req, res) {
   try {
@@ -59,6 +60,16 @@ async function createAppointment(req, res) {
       }
     );
 
+    const profiles = await query('SELECT id FROM client_profiles WHERE student_id = :studentId', {
+      studentId: req.user.id
+    });
+    if (!profiles.length) {
+      await query(
+        `INSERT INTO client_profiles (student_id, counselor_id, status) VALUES (:studentId, :counselorId, 'active')`,
+        { studentId: req.user.id, counselorId: counselor_id }
+      );
+    }
+
     await createNotification(
       counselor_id,
       'New appointment request',
@@ -90,10 +101,10 @@ async function updateAppointmentStatus(req, res) {
     }
 
     const appointment = rows[0];
-    if (req.user.role === 'counselor' && appointment.counselor_id !== req.user.id) {
+    if (req.user.role === 'counselor' && !sameId(appointment.counselor_id, req.user.id)) {
       return res.status(403).json({ message: 'Not your appointment' });
     }
-    if (req.user.role === 'student' && (appointment.student_id !== req.user.id || status !== 'cancelled')) {
+    if (req.user.role === 'student' && (!sameId(appointment.student_id, req.user.id) || status !== 'cancelled')) {
       return res.status(403).json({ message: 'Students can only cancel their appointments' });
     }
 
@@ -102,6 +113,13 @@ async function updateAppointmentStatus(req, res) {
        WHERE id = :id`,
       { id, status, counselor_notes: counselor_notes || null }
     );
+
+    if (status === 'approved') {
+      await query(
+        `UPDATE client_profiles SET counselor_id = :counselorId, updated_at = CURRENT_TIMESTAMP WHERE student_id = :studentId`,
+        { counselorId: appointment.counselor_id, studentId: appointment.student_id }
+      );
+    }
 
     const notifyUser = req.user.role === 'counselor' ? appointment.student_id : appointment.counselor_id;
     await createNotification(

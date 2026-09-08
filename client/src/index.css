@@ -1036,3 +1036,28 @@ video:hover {
     transform: none;
   }
 }
+
+@media print {
+  .sidebar,
+  .app-topbar,
+  .page-banner,
+  .no-print,
+  .landing-nav {
+    display: none !important;
+  }
+
+  .app-shell,
+  .main-area,
+  .content {
+    display: block !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .report-paper {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

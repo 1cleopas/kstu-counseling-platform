@@ -19,7 +19,12 @@ export default function Login() {
       await login(email, password);
       navigate('/app');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(
+        err.response?.data?.message ||
+          (err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+            ? 'Cannot reach the server. Start the API with npm run dev:server, then try again.'
+            : 'Login failed')
+      );
     } finally {
       setLoading(false);
     }

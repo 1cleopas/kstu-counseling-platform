@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
 
+function toSqlDateTime(value) {
+  const withSpace = String(value).replace('T', ' ');
+  return withSpace.length === 16 ? `${withSpace}:00` : withSpace;
+}
+
 export default function BookAppointment() {
   const navigate = useNavigate();
   const [counselors, setCounselors] = useState([]);
@@ -33,7 +38,7 @@ export default function BookAppointment() {
       await api.post('/appointments', {
         ...form,
         counselor_id: Number(form.counselor_id),
-        scheduled_at: form.scheduled_at.replace('T', ' ') + ':00'
+        scheduled_at: toSqlDateTime(form.scheduled_at)
       });
       setMessage('Appointment request submitted. A counselor will review it shortly.');
       setTimeout(() => navigate('/app/appointments'), 1200);
@@ -60,6 +65,7 @@ export default function BookAppointment() {
             onChange={(e) => setForm({ ...form, counselor_id: e.target.value })}
             required
           >
+            {counselors.length === 0 && <option value="">No counselors available</option>}
             {counselors.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.full_name} {c.specialization ? `· ${c.specialization}` : ''}

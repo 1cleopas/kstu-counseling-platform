@@ -10,6 +10,9 @@ const { initChatSocket } = require('./socket/chatSocket');
 const { ensureDemoData } = require('./ensureDemoData');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'kstu-care-dev-secret';
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -29,7 +32,7 @@ app.use(
       }
       try {
         const host = new URL(origin).hostname;
-        if (host.endsWith('.vercel.app') || host === 'kstu-counseling-platform.vercel.app') {
+        if (host.endsWith('.onrender.com') || host.endsWith('.vercel.app')) {
           return callback(null, true);
         }
       } catch {
@@ -53,6 +56,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/clients', require('./routes/clients'));
+app.use('/api/reports', require('./routes/reports'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/notifications', require('./routes/notifications'));
@@ -84,7 +88,7 @@ const io = new Server(server, {
       }
       try {
         const host = new URL(origin).hostname;
-        if (host.endsWith('.vercel.app')) {
+        if (host.endsWith('.onrender.com') || host.endsWith('.vercel.app')) {
           return callback(null, true);
         }
       } catch {
@@ -104,8 +108,14 @@ ensureDemoData()
     console.error('Demo data setup failed:', error.message);
   })
   .finally(() => {
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`KSTU Counseling API running on http://localhost:${PORT}`);
       console.log(`PeerJS signaling available at http://localhost:${PORT}/peerjs`);
+    }).on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Stop the other process, then run npm run dev:server again.`);
+        process.exit(1);
+      }
+      throw error;
     });
   });

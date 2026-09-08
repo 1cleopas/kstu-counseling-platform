@@ -46,10 +46,10 @@ export default function NotificationsPage() {
                 <strong>{item.title}</strong>
                 <div className="muted">{format(new Date(item.created_at), 'PPp')}</div>
               </div>
-              {!item.is_read && <span className="badge pending">unread</span>}
+              {Number(item.is_read) === 0 && <span className="badge pending">unread</span>}
             </div>
             <p>{item.body}</p>
-            {!item.is_read && (
+            {Number(item.is_read) === 0 && (
               <button className="btn btn-ghost" onClick={() => markOne(item.id)}>
                 Mark read
               </button>

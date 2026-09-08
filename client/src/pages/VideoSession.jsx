@@ -29,36 +29,23 @@ export default function VideoSession() {
         const roomId = `kstu-appt-${appointmentId}`;
         const myId = `${roomId}-${user.role}-${user.id}`;
         const useLocalPeer = import.meta.env.DEV;
-        const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
-        let peerHost = 'localhost';
-        let peerPort = 5000;
-        let peerSecure = false;
-        if (!useLocalPeer) {
-          try {
-            const parsed = new URL(socketUrl);
-            peerHost = parsed.hostname;
-            peerPort = parsed.port
-              ? Number(parsed.port)
-              : parsed.protocol === 'https:'
-                ? 443
-                : 80;
-            peerSecure = parsed.protocol === 'https:';
-          } catch {
-            peerHost = window.location.hostname;
-            peerPort = window.location.port
-              ? Number(window.location.port)
-              : window.location.protocol === 'https:'
-                ? 443
-                : 80;
-            peerSecure = window.location.protocol === 'https:';
-          }
-        }
-        const peer = new Peer(myId, {
-          host: peerHost,
-          port: peerPort,
-          path: '/peerjs',
-          secure: peerSecure
-        });
+        const peer = new Peer(myId, useLocalPeer
+          ? {
+              host: 'localhost',
+              port: 5000,
+              path: '/peerjs',
+              secure: false
+            }
+          : {
+              host: window.location.hostname,
+              port: window.location.port
+                ? Number(window.location.port)
+                : window.location.protocol === 'https:'
+                  ? 443
+                  : 80,
+              path: '/peerjs',
+              secure: window.location.protocol === 'https:'
+            });
         peerRef.current = peer;
 
         peer.on('open', (id) => {

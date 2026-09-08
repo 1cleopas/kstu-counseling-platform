@@ -42,6 +42,11 @@ export default function CounselorAppointments() {
             </tr>
           </thead>
           <tbody>
+            {appointments.length === 0 && (
+              <tr>
+                <td colSpan="6" className="muted">No appointment requests yet.</td>
+              </tr>
+            )}
             {appointments.map((item) => (
               <tr key={item.id}>
                 <td>

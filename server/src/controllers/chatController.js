@@ -1,4 +1,5 @@
 const { query } = require('../config/db');
+const { sameId } = require('../utils/ids');
 
 async function listConversations(req, res) {
   try {
@@ -22,7 +23,7 @@ async function listConversations(req, res) {
       params.userId = req.user.id;
     }
 
-    sql += ' ORDER BY last_message_at DESC';
+    sql += ' ORDER BY COALESCE(last_message_at, conv.created_at) DESC';
     const conversations = await query(sql, params);
     return res.json({ conversations });
   } catch (error) {
@@ -85,8 +86,8 @@ async function getMessages(req, res) {
     const conv = conversations[0];
     if (
       req.user.role !== 'admin' &&
-      req.user.id !== conv.student_id &&
-      req.user.id !== conv.counselor_id
+      !sameId(req.user.id, conv.student_id) &&
+      !sameId(req.user.id, conv.counselor_id)
     ) {
       return res.status(403).json({ message: 'Access denied' });
     }

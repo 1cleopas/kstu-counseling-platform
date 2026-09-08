@@ -16,7 +16,8 @@ export default function AppLayout() {
     ...(user.role === 'counselor' || user.role === 'admin'
       ? [
           { to: '/app/clients', label: 'Clients' },
-          { to: '/app/counselor-appointments', label: 'Appointments' }
+          { to: '/app/counselor-appointments', label: 'Appointments' },
+          { to: '/app/reports', label: 'Reports' }
         ]
       : []),
     ...(user.role === 'admin' ? [{ to: '/app/admin/users', label: 'Users' }] : []),
