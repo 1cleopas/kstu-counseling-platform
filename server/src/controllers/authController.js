@@ -11,6 +11,44 @@ function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+async function verifyGoogleIdToken(credential) {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    const error = new Error('Google sign-in is not configured yet');
+    error.status = 503;
+    throw error;
+  }
+  if (!credential) {
+    const error = new Error('Google credential is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const { OAuth2Client } = require('google-auth-library');
+  const client = new OAuth2Client(clientId);
+  const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+  const payload = ticket.getPayload();
+  const email = String(payload?.email || '').trim().toLowerCase();
+
+  if (!email || payload.email_verified === false) {
+    const error = new Error('Google did not provide a verified email');
+    error.status = 401;
+    throw error;
+  }
+
+  return { email, payload };
+}
+
+async function issuePasswordReset(user) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  await query(
+    `UPDATE users SET password_reset_token = :token, password_reset_expires = :expires WHERE id = :id`,
+    { id: user.id, token: hashResetToken(token), expires }
+  );
+  return token;
+}
+
 function signToken(user) {
   return jwt.sign(
     { id: user.id, role: user.role, full_name: user.full_name, email: user.email },
@@ -165,13 +203,7 @@ async function forgotPassword(req, res) {
       });
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-    await query(
-      `UPDATE users SET password_reset_token = :token, password_reset_expires = :expires WHERE id = :id`,
-      { id: user.id, token: hashResetToken(token), expires }
-    );
-
+    const token = await issuePasswordReset(user);
     return res.json({ token, message: 'Identity verified. Set a new password.' });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -225,26 +257,7 @@ async function googleConfig(_req, res) {
 
 async function googleLogin(req, res) {
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      return res.status(503).json({ message: 'Google sign-in is not configured yet' });
-    }
-
-    const credential = req.body.credential;
-    if (!credential) {
-      return res.status(400).json({ message: 'Google credential is required' });
-    }
-
-    const { OAuth2Client } = require('google-auth-library');
-    const client = new OAuth2Client(clientId);
-    const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
-    const payload = ticket.getPayload();
-    const email = String(payload?.email || '').trim().toLowerCase();
-
-    if (!email || payload.email_verified === false) {
-      return res.status(401).json({ message: 'Google did not provide a verified email' });
-    }
-
+    const { email, payload } = await verifyGoogleIdToken(req.body.credential);
     const rows = await query('SELECT * FROM users WHERE lower(email) = :email', { email });
     let user = rows[0];
 
@@ -278,7 +291,27 @@ async function googleLogin(req, res) {
     return res.json({ token: signToken(user), user: publicUser(user) });
   } catch (error) {
     console.error('Google login error:', error);
-    return res.status(401).json({ message: 'Google sign-in failed' });
+    return res.status(error.status || 401).json({ message: error.message || 'Google sign-in failed' });
+  }
+}
+
+async function forgotPasswordGoogle(req, res) {
+  try {
+    const { email } = await verifyGoogleIdToken(req.body.credential);
+    const rows = await query('SELECT * FROM users WHERE lower(email) = :email', { email });
+    const user = rows[0];
+
+    if (!user || !user.is_active) {
+      return res.status(400).json({
+        message: 'No active KSTU Care account uses that Gmail. Register or sign in with Google first.'
+      });
+    }
+
+    const token = await issuePasswordReset(user);
+    return res.json({ token, message: 'Gmail verified. Set a new password.' });
+  } catch (error) {
+    console.error('Forgot password Google error:', error);
+    return res.status(error.status || 401).json({ message: error.message || 'Google verification failed' });
   }
 }
 
@@ -311,4 +344,14 @@ async function updateProfile(req, res) {
   }
 }
 
-module.exports = { register, login, me, updateProfile, forgotPassword, resetPassword, googleConfig, googleLogin };
+module.exports = {
+  register,
+  login,
+  me,
+  updateProfile,
+  forgotPassword,
+  resetPassword,
+  googleConfig,
+  googleLogin,
+  forgotPasswordGoogle
+};

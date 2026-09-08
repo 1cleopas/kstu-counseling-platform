@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import GoogleSignIn from '../components/GoogleSignIn';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -9,6 +10,10 @@ export default function ForgotPassword() {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  function goToReset(token) {
+    navigate(`/reset-password?token=${encodeURIComponent(token)}`, { replace: true });
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -20,7 +25,7 @@ export default function ForgotPassword() {
         student_id: studentId,
         phone
       });
-      navigate(`/reset-password?token=${encodeURIComponent(data.token)}`, { replace: true });
+      goToReset(data.token);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not verify your account');
     } finally {
@@ -31,7 +36,7 @@ export default function ForgotPassword() {
   return (
     <div className="auth-shell">
       <div className="auth-backdrop" aria-hidden="true" />
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <div className="auth-card">
         <div className="brand">
           <div className="brand-badge">K</div>
           <div>
@@ -41,11 +46,12 @@ export default function ForgotPassword() {
         </div>
         <h1>Forgot password</h1>
         <p className="muted">
-          Confirm your email and identity. Students use student ID. Counselors and admins use the phone number on the
-          account.
+          Confirm your Gmail with Google, or verify with student ID / phone, then set a new password.
         </p>
         {error && <div className="error">{error}</div>}
-        <div className="form-grid">
+        <GoogleSignIn mode="reset" onSuccess={goToReset} onError={setError} />
+        <p className="auth-divider">or verify with account details</p>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Email
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
@@ -61,11 +67,11 @@ export default function ForgotPassword() {
           <button className="btn btn-primary" disabled={loading}>
             {loading ? 'Checking...' : 'Continue'}
           </button>
-        </div>
+        </form>
         <p className="muted" style={{ marginTop: '1rem' }}>
           Remembered it? <Link to="/login">Sign in</Link>
         </p>
-      </form>
+      </div>
     </div>
   );
 }

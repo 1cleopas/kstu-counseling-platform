@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
-export default function GoogleSignIn({ onSuccess, onError }) {
+export default function GoogleSignIn({ onSuccess, onError, mode = 'login' }) {
   const { loginWithGoogle } = useAuth();
   const buttonRef = useRef(null);
   const [clientId, setClientId] = useState(null);
@@ -16,9 +16,13 @@ export default function GoogleSignIn({ onSuccess, onError }) {
     if (!clientId || !buttonRef.current) return undefined;
 
     function handleCredential(response) {
-      loginWithGoogle(response.credential)
-        .then(() => onSuccess?.())
-        .catch((err) => onError?.(err.response?.data?.message || 'Google sign-in failed'));
+      const credential = response.credential;
+      const action =
+        mode === 'reset'
+          ? api.post('/auth/forgot-password/google', { credential }).then((res) => onSuccess?.(res.data.token))
+          : loginWithGoogle(credential).then(() => onSuccess?.());
+
+      action.catch((err) => onError?.(err.response?.data?.message || err.message || 'Google sign-in failed'));
     }
 
     function renderButton() {
@@ -51,7 +55,7 @@ export default function GoogleSignIn({ onSuccess, onError }) {
     script.onload = renderButton;
     document.head.appendChild(script);
     return undefined;
-  }, [clientId, loginWithGoogle, onError, onSuccess]);
+  }, [clientId, loginWithGoogle, mode, onError, onSuccess]);
 
   if (!clientId) return null;
 
