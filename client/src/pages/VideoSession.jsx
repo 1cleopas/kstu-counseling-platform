@@ -1,8 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Peer } from 'peerjs';
+import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageBanner from '../components/PageBanner';
+
+function peerOptions() {
+  if (import.meta.env.DEV) {
+    return { host: 'localhost', port: 5000, path: '/peerjs', secure: false };
+  }
+  return {
+    host: window.location.hostname,
+    port: window.location.protocol === 'https:' ? 443 : 80,
+    path: '/peerjs',
+    secure: window.location.protocol === 'https:',
+    config: {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    }
+  };
+}
+
+function roomPeerId(appointmentId, role, userId) {
+  return `kstu-appt-${appointmentId}-${role}-${userId}`;
+}
 
 export default function VideoSession() {
   const { appointmentId } = useParams();
@@ -10,66 +30,89 @@ export default function VideoSession() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
-  const [peerId, setPeerId] = useState('');
-  const [remotePeerId, setRemotePeerId] = useState('');
-  const [status, setStatus] = useState('Connecting media devices...');
+  const streamRef = useRef(null);
+  const [partnerName, setPartnerName] = useState('your counseling partner');
+  const [status, setStatus] = useState('Connecting camera...');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let localStream;
     let destroyed = false;
+    let retryTimer;
 
     async function start() {
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const { data } = await api.get('/appointments');
+        const appointment = (data.appointments || []).find(
+          (item) => String(item.id) === String(appointmentId)
+        );
+        if (!appointment) {
+          setError('This video appointment was not found.');
+          return;
+        }
+
+        const partnerId =
+          user.role === 'student' ? appointment.counselor_id : appointment.student_id;
+        const partnerRole = user.role === 'student' ? 'counselor' : 'student';
+        setPartnerName(
+          user.role === 'student' ? appointment.counselor_name : appointment.student_name
+        );
+
+        const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        streamRef.current = localStream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = localStream;
         }
+        if (destroyed) {
+          localStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
-        const roomId = `kstu-appt-${appointmentId}`;
-        const myId = `${roomId}-${user.role}-${user.id}`;
-        const useLocalPeer = import.meta.env.DEV;
-        const peer = new Peer(myId, useLocalPeer
-          ? {
-              host: 'localhost',
-              port: 5000,
-              path: '/peerjs',
-              secure: false
-            }
-          : {
-              host: window.location.hostname,
-              port: window.location.port
-                ? Number(window.location.port)
-                : window.location.protocol === 'https:'
-                  ? 443
-                  : 80,
-              path: '/peerjs',
-              secure: window.location.protocol === 'https:'
-            });
+        const myId = roomPeerId(appointmentId, user.role, user.id);
+        const theirId = roomPeerId(appointmentId, partnerRole, partnerId);
+        const peer = new Peer(myId, peerOptions());
         peerRef.current = peer;
 
-        peer.on('open', (id) => {
+        function callPartner() {
+          if (destroyed || !peerRef.current || !streamRef.current) return;
+          setStatus(`Calling ${user.role === 'student' ? appointment.counselor_name : appointment.student_name}...`);
+          const call = peerRef.current.call(theirId, streamRef.current);
+          if (!call) return;
+          call.on('stream', attachRemote);
+          call.on('error', () => {
+            setStatus('Waiting for the other person to join...');
+          });
+        }
+
+        function attachRemote(remoteStream) {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream;
+          }
+          setStatus('Connected');
+          clearInterval(retryTimer);
+        }
+
+        peer.on('open', () => {
           if (destroyed) return;
-          setPeerId(id);
-          setStatus('Camera ready. Share your Peer ID or call the other participant.');
+          setStatus('Camera ready. Waiting for the other person to join...');
+          callPartner();
+          retryTimer = setInterval(callPartner, 4000);
         });
 
         peer.on('call', (call) => {
-          setStatus('Incoming call... answering');
-          call.answer(localStream);
-          call.on('stream', (remoteStream) => {
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = remoteStream;
-            }
-            setStatus('Connected');
-          });
+          setStatus('Connecting...');
+          call.answer(streamRef.current);
+          call.on('stream', attachRemote);
         });
 
         peer.on('error', (err) => {
-          setError(err.message || 'Peer connection error');
+          if (err?.type === 'peer-unavailable' || String(err.message || '').includes('Could not connect')) {
+            setStatus('Waiting for the other person to join...');
+            return;
+          }
+          setError(err.message || 'Video connection error');
         });
       } catch (err) {
-        setError(err.message || 'Could not access camera/microphone');
+        setError(err.response?.data?.message || err.message || 'Could not start the video session');
       }
     }
 
@@ -77,29 +120,18 @@ export default function VideoSession() {
 
     return () => {
       destroyed = true;
+      clearInterval(retryTimer);
       peerRef.current?.destroy();
-      localStream?.getTracks().forEach((track) => track.stop());
+      streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, [appointmentId, user.id, user.role]);
-
-  function callPeer() {
-    if (!peerRef.current || !remotePeerId || !localVideoRef.current?.srcObject) return;
-    setStatus('Calling...');
-    const call = peerRef.current.call(remotePeerId.trim(), localVideoRef.current.srcObject);
-    call.on('stream', (remoteStream) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
-      }
-      setStatus('Connected');
-    });
-  }
 
   return (
     <div>
       <PageBanner
         image="/images/video-care.jpg"
         title="Video counseling"
-        subtitle={`Appointment #${appointmentId} · WebRTC session via PeerJS`}
+        subtitle={`Appointment #${appointmentId} · live session with ${partnerName}`}
       />
 
       {error && <div className="error">{error}</div>}
@@ -112,32 +144,14 @@ export default function VideoSession() {
             <video ref={localVideoRef} autoPlay muted playsInline />
           </div>
           <div>
-            <h3>Counseling partner</h3>
+            <h3>{partnerName}</h3>
             <video ref={remoteVideoRef} autoPlay playsInline />
           </div>
         </div>
-
-        <div className="panel form-grid">
-          <label>
-            Your Peer ID
-            <input value={peerId} readOnly />
-          </label>
-          <label>
-            Partner Peer ID
-            <input
-              value={remotePeerId}
-              onChange={(e) => setRemotePeerId(e.target.value)}
-              placeholder="Paste the other person's Peer ID"
-            />
-          </label>
-          <button className="btn btn-primary" type="button" onClick={callPeer}>
-            Start / join call
-          </button>
-          <p className="muted">
-            Both participants open this page for the same appointment. One person copies their Peer ID;
-            the other pastes it and clicks start.
-          </p>
-        </div>
+        <p className="muted">
+          Both people click Join video / Start video for the same appointment. Allow camera and microphone.
+          The call connects automatically when both are on this page.
+        </p>
       </div>
     </div>
   );
