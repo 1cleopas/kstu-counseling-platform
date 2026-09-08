@@ -6,8 +6,8 @@ services:
     region: oregon
     branch: master
     buildCommand: npm run build:deploy
-    startCommand: npm start
-    healthCheckPath: /api/health
+    startCommand: node server/src/index.js
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production

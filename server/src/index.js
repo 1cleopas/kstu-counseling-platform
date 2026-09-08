@@ -17,6 +17,10 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const server = http.createServer(app);
 
+app.get('/health', (_req, res) => {
+  res.status(200).send('ok');
+});
+
 const clientUrls = [
   ...(process.env.CLIENT_URL || 'http://localhost:5173,http://localhost:5174').split(','),
   process.env.RENDER_EXTERNAL_URL || ''
@@ -61,17 +65,31 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/notifications', require('./routes/notifications'));
 
-const peerServer = ExpressPeerServer(server, {
-  path: '/',
-  debug: process.env.NODE_ENV !== 'production'
-});
-app.use('/peerjs', peerServer);
+try {
+  const peerServer = ExpressPeerServer(server, {
+    path: '/',
+    debug: process.env.NODE_ENV !== 'production'
+  });
+  app.use('/peerjs', peerServer);
+} catch (error) {
+  console.error('PeerJS setup failed:', error.message);
+}
 
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
-  app.get(/^(?!\/api(?:\/|$)|\/peerjs(?:\/|$)|\/socket\.io(?:\/|$)).*/, (_req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const urlPath = req.path || '';
+    if (
+      urlPath.startsWith('/api') ||
+      urlPath.startsWith('/peerjs') ||
+      urlPath.startsWith('/socket.io') ||
+      urlPath === '/health'
+    ) {
+      return next();
+    }
+    return res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
 
