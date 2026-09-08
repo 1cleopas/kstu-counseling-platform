@@ -5,7 +5,7 @@ const fs = require('fs');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const { STUDENT_EMAIL, COUNSELOR_EMAIL, DEMO_PASSWORD } = require('./ensureDemoData');
+const { STUDENT_EMAIL, COUNSELOR_EMAIL, ADMIN_EMAIL, DEMO_PASSWORD } = require('./ensureDemoData');
 
 async function seedMysql() {
   const mysql = require('mysql2/promise');
@@ -71,11 +71,27 @@ async function seedMysql() {
   );
   const [counselorRows] = await connection.execute('SELECT id FROM users WHERE email = ?', [COUNSELOR_EMAIL]);
   await connection.execute(
+    `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      null,
+      'Platform Admin',
+      ADMIN_EMAIL,
+      passwordHash,
+      'admin',
+      '0200000001',
+      'Counseling Unit',
+      null,
+      null,
+      'KSTU Care platform administrator.'
+    ]
+  );
+  await connection.execute(
     `INSERT INTO client_profiles (student_id, counselor_id, status) VALUES (?, ?, 'active')`,
     [studentRows[0].id, counselorRows[0].id]
   );
 
-  console.log('MySQL schema applied with student and counselor demo accounts.');
+  console.log('MySQL schema applied with student, counselor, and admin demo accounts.');
   await connection.end();
 }
 
@@ -145,6 +161,18 @@ async function seedSqlite() {
     specialization: 'Student Support',
     bio: 'KSTU Counseling Unit counselor.'
   });
+  insertUser.run({
+    student_id: null,
+    full_name: 'Platform Admin',
+    email: ADMIN_EMAIL,
+    password_hash: passwordHash,
+    role: 'admin',
+    phone: '0200000001',
+    department: 'Counseling Unit',
+    programme: null,
+    specialization: null,
+    bio: 'KSTU Care platform administrator.'
+  });
   db.prepare(
     `INSERT INTO client_profiles (student_id, counselor_id, status) VALUES (?, ?, 'active')`
   ).run(student.lastInsertRowid, counselor.lastInsertRowid);
@@ -163,6 +191,7 @@ async function run() {
 
   console.log(`Student login: ${STUDENT_EMAIL}`);
   console.log(`Counselor login: ${COUNSELOR_EMAIL}`);
+  console.log(`Admin login: ${ADMIN_EMAIL}`);
   console.log(`Password: ${DEMO_PASSWORD}`);
 }
 

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 
 const STUDENT_EMAIL = 'cleopas@student.kstu.edu.gh';
 const COUNSELOR_EMAIL = 'emily@counselor.kstu.edu.gh';
+const ADMIN_EMAIL = 'admin@kstu.edu.gh';
 const DEMO_PASSWORD = 'Password123!';
 
 async function ensureDemoAccounts(db) {
@@ -51,6 +52,26 @@ async function ensureDemoAccounts(db) {
     counselorId = created.insertId;
   }
 
+  const admins = await db.query('SELECT id FROM users WHERE email = :email', { email: ADMIN_EMAIL });
+  if (!admins[0]?.id) {
+    await db.query(
+      `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme, specialization, bio)
+       VALUES (:student_id, :full_name, :email, :password_hash, :role, :phone, :department, :programme, :specialization, :bio)`,
+      {
+        student_id: null,
+        full_name: 'Platform Admin',
+        email: ADMIN_EMAIL,
+        password_hash: passwordHash,
+        role: 'admin',
+        phone: '0200000001',
+        department: 'Counseling Unit',
+        programme: null,
+        specialization: null,
+        bio: 'KSTU Care platform administrator.'
+      }
+    );
+  }
+
   if (studentId) {
     const profiles = await db.query('SELECT id FROM client_profiles WHERE student_id = :studentId', { studentId });
     if (!profiles.length) {
@@ -81,6 +102,7 @@ async function ensureDemoData() {
 module.exports = {
   STUDENT_EMAIL,
   COUNSELOR_EMAIL,
+  ADMIN_EMAIL,
   DEMO_PASSWORD,
   ensureDemoAccounts,
   ensureDemoData
