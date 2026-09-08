@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import api from '../api/client';
 
 const AuthContext = createContext(null);
@@ -42,26 +42,26 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  async function login(email, password) {
+  const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('kstu_token', data.token);
     setUser(data.user);
     return data.user;
-  }
+  }, []);
 
-  async function register(payload) {
+  const register = useCallback(async (payload) => {
     const { data } = await api.post('/auth/register', payload);
     localStorage.setItem('kstu_token', data.token);
     setUser(data.user);
     return data.user;
-  }
+  }, []);
 
-  async function loginWithGoogle(credential) {
+  const loginWithGoogle = useCallback(async (credential) => {
     const { data } = await api.post('/auth/google', { credential });
     localStorage.setItem('kstu_token', data.token);
     setUser(data.user);
     return data.user;
-  }
+  }, []);
 
   function logout() {
     localStorage.removeItem('kstu_token');

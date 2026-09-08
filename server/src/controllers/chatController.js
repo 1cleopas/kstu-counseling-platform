@@ -23,7 +23,7 @@ async function listConversations(req, res) {
       params.userId = req.user.id;
     }
 
-    sql += ' ORDER BY COALESCE(last_message_at, conv.created_at) DESC';
+    sql += ' ORDER BY COALESCE((SELECT created_at FROM messages m WHERE m.conversation_id = conv.id ORDER BY m.created_at DESC LIMIT 1), conv.created_at) DESC';
     const conversations = await query(sql, params);
     return res.json({ conversations });
   } catch (error) {

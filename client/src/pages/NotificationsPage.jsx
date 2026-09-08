@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import api from '../api/client';
 import PageBanner from '../components/PageBanner';
+import { formatDbDate } from '../utils/dates';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -44,7 +44,7 @@ export default function NotificationsPage() {
             <div className="inline-actions" style={{ justifyContent: 'space-between' }}>
               <div>
                 <strong>{item.title}</strong>
-                <div className="muted">{format(new Date(item.created_at), 'PPp')}</div>
+                <div className="muted">{formatDbDate(item.created_at)}</div>
               </div>
               {Number(item.is_read) === 0 && <span className="badge pending">unread</span>}
             </div>

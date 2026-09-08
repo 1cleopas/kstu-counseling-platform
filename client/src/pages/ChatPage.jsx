@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { format } from 'date-fns';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PageBanner from '../components/PageBanner';
+import { formatDbDate } from '../utils/dates';
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -14,6 +14,7 @@ export default function ChatPage() {
   const [counselors, setCounselors] = useState([]);
   const [students, setStudents] = useState([]);
   const [partnerId, setPartnerId] = useState('');
+  const [adminCounselorId, setAdminCounselorId] = useState('');
   const activeIdRef = useRef(null);
 
   const socket = useMemo(() => {
@@ -42,12 +43,15 @@ export default function ChatPage() {
       api.get('/clients').then((res) => {
         const unique = [];
         for (const client of res.data.clients || []) {
-          if (!unique.find((s) => s.id === client.student_id)) {
+          if (!unique.find((s) => Number(s.id) === Number(client.student_id))) {
             unique.push({ id: client.student_id, full_name: client.student_name });
           }
         }
         setStudents(unique);
       });
+      if (user.role === 'admin') {
+        api.get('/admin/counselors').then((res) => setCounselors(res.data.counselors || []));
+      }
     }
 
     socket.connect();
@@ -80,7 +84,9 @@ export default function ChatPage() {
     const payload =
       user.role === 'student'
         ? { counselor_id: Number(partnerId) }
-        : { student_id: Number(partnerId) };
+        : user.role === 'admin'
+          ? { student_id: Number(partnerId), counselor_id: Number(adminCounselorId) }
+          : { student_id: Number(partnerId) };
     const { data } = await api.post('/chat/conversations', payload);
     setActiveId(data.conversation.id);
     loadConversations();
@@ -111,6 +117,16 @@ export default function ChatPage() {
       />
 
       <form className="panel inline-actions" onSubmit={startConversation} style={{ marginBottom: '1rem' }}>
+        {user.role === 'admin' && (
+          <select value={adminCounselorId} onChange={(e) => setAdminCounselorId(e.target.value)} required>
+            <option value="">Select counselor</option>
+            {counselors.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.full_name}
+              </option>
+            ))}
+          </select>
+        )}
         <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} required>
           <option value="">
             {user.role === 'student' ? 'Select counselor' : 'Select student'}
@@ -133,7 +149,11 @@ export default function ChatPage() {
               onClick={() => setActiveId(conv.id)}
             >
               <strong>
-                {user.role === 'student' ? conv.counselor_name : conv.student_name}
+                {user.role === 'student'
+                  ? conv.counselor_name
+                  : user.role === 'admin'
+                    ? `${conv.student_name} / ${conv.counselor_name}`
+                    : conv.student_name}
               </strong>
               <div className="muted">{conv.last_message || 'No messages yet'}</div>
             </button>
@@ -146,7 +166,9 @@ export default function ChatPage() {
               {active
                 ? user.role === 'student'
                   ? active.counselor_name
-                  : active.student_name
+                  : user.role === 'admin'
+                    ? `${active.student_name} / ${active.counselor_name}`
+                    : active.student_name
                 : 'Select a conversation'}
             </strong>
           </div>
@@ -157,7 +179,7 @@ export default function ChatPage() {
                 className={`bubble ${Number(message.sender_id) === Number(user.id) ? 'mine' : ''}`}
               >
                 <div>{message.body}</div>
-                <small>{format(new Date(message.created_at), 'HH:mm')}</small>
+                <small>{formatDbDate(message.created_at, 'HH:mm')}</small>
               </div>
             ))}
           </div>

@@ -28,14 +28,14 @@ async function dashboard(req, res) {
 
     return res.json({
       stats: {
-        students: students.count,
-        counselors: counselors.count,
-        appointments: appointments.count,
-        pending: pending.count,
-        completed: completed.count,
-        sessions: sessions.count,
-        messages: messages.count,
-        activeClients: activeClients.count
+        students: Number(students?.count || 0),
+        counselors: Number(counselors?.count || 0),
+        appointments: Number(appointments?.count || 0),
+        pending: Number(pending?.count || 0),
+        completed: Number(completed?.count || 0),
+        sessions: Number(sessions?.count || 0),
+        messages: Number(messages?.count || 0),
+        activeClients: Number(activeClients?.count || 0)
       },
       recentAppointments,
       appointmentsByStatus

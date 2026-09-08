@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import PageBanner from '../../components/PageBanner';
+import { formatDbDate } from '../../utils/dates';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -23,7 +23,7 @@ export default function StudentDashboard() {
     <div>
       <PageBanner
         image="/images/calm-counseling.jpg"
-        title={`Hello, ${user.full_name.split(' ')[0]}`}
+        title={`Hello, ${(user.full_name || 'there').split(' ')[0]}`}
         subtitle="Book sessions, chat privately, or join a video counseling appointment."
       >
         <Link className="btn btn-primary" to="/app/book">
@@ -56,7 +56,7 @@ export default function StudentDashboard() {
                 <div>
                   <strong>{item.counselor_name}</strong>
                   <div className="muted">
-                    {format(new Date(item.scheduled_at), 'EEE, MMM d · HH:mm')} · {item.mode}
+                    {formatDbDate(item.scheduled_at, 'EEE, MMM d · HH:mm')} · {item.mode}
                   </div>
                 </div>
                 <span className={`badge ${item.status}`}>{item.status}</span>

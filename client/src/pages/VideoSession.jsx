@@ -6,17 +6,16 @@ import { useAuth } from '../context/AuthContext';
 import PageBanner from '../components/PageBanner';
 
 function peerOptions() {
+  const ice = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   if (import.meta.env.DEV) {
-    return { host: 'localhost', port: 5000, path: '/peerjs', secure: false };
+    return { host: 'localhost', port: 5000, path: '/peerjs', secure: false, config: ice };
   }
   return {
     host: window.location.hostname,
     port: window.location.protocol === 'https:' ? 443 : 80,
     path: '/peerjs',
     secure: window.location.protocol === 'https:',
-    config: {
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    }
+    config: ice
   };
 }
 
@@ -38,15 +37,26 @@ export default function VideoSession() {
   useEffect(() => {
     let destroyed = false;
     let retryTimer;
+    const connectedRef = { current: false };
 
     async function start() {
       try {
+        if (user.role !== 'student' && user.role !== 'counselor') {
+          setError('Only the student and counselor on this appointment can join the video session.');
+          setStatus('Unavailable');
+          return;
+        }
+
         const { data } = await api.get('/appointments');
         const appointment = (data.appointments || []).find(
           (item) => String(item.id) === String(appointmentId)
         );
         if (!appointment) {
           setError('This video appointment was not found.');
+          return;
+        }
+        if (appointment.mode !== 'video') {
+          setError('This appointment is not a video session.');
           return;
         }
 
@@ -61,6 +71,7 @@ export default function VideoSession() {
         streamRef.current = localStream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = localStream;
+          localVideoRef.current.play?.().catch(() => {});
         }
         if (destroyed) {
           localStream.getTracks().forEach((track) => track.stop());
@@ -69,23 +80,26 @@ export default function VideoSession() {
 
         const myId = roomPeerId(appointmentId, user.role, user.id);
         const theirId = roomPeerId(appointmentId, partnerRole, partnerId);
+        const shouldCall = Number(user.id) < Number(partnerId);
         const peer = new Peer(myId, peerOptions());
         peerRef.current = peer;
 
         function callPartner() {
-          if (destroyed || !peerRef.current || !streamRef.current) return;
+          if (destroyed || connectedRef.current || !peerRef.current || !streamRef.current) return;
           setStatus(`Calling ${user.role === 'student' ? appointment.counselor_name : appointment.student_name}...`);
           const call = peerRef.current.call(theirId, streamRef.current);
           if (!call) return;
           call.on('stream', attachRemote);
           call.on('error', () => {
-            setStatus('Waiting for the other person to join...');
+            if (!connectedRef.current) setStatus('Waiting for the other person to join...');
           });
         }
 
         function attachRemote(remoteStream) {
+          connectedRef.current = true;
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.play?.().catch(() => {});
           }
           setStatus('Connected');
           clearInterval(retryTimer);
@@ -94,8 +108,10 @@ export default function VideoSession() {
         peer.on('open', () => {
           if (destroyed) return;
           setStatus('Camera ready. Waiting for the other person to join...');
-          callPartner();
-          retryTimer = setInterval(callPartner, 4000);
+          if (shouldCall) {
+            callPartner();
+            retryTimer = setInterval(callPartner, 4000);
+          }
         });
 
         peer.on('call', (call) => {

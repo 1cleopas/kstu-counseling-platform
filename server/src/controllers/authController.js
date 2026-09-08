@@ -74,9 +74,9 @@ function publicUser(user) {
 
 async function register(req, res) {
   try {
+    const email = String(req.body.email || '').trim().toLowerCase();
     const {
       full_name,
-      email,
       password,
       role = 'student',
       student_id,
@@ -97,7 +97,7 @@ async function register(req, res) {
       return res.status(400).json({ message: 'Student ID is required for student accounts' });
     }
 
-    const existing = await query('SELECT id FROM users WHERE email = :email', { email });
+    const existing = await query('SELECT id FROM users WHERE lower(email) = :email', { email });
     if (existing.length) {
       return res.status(409).json({ message: 'Email is already registered' });
     }
@@ -139,11 +139,14 @@ async function register(req, res) {
 async function login(req, res) {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const rows = await query('SELECT * FROM users WHERE email = :email AND is_active = 1', { email });
+    const rows = await query('SELECT * FROM users WHERE lower(email) = :email AND is_active = 1', {
+      email: normalizedEmail
+    });
     const user = rows[0];
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });

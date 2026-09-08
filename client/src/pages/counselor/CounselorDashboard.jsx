@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import PageBanner from '../../components/PageBanner';
+import { formatDbDate } from '../../utils/dates';
 
 export default function CounselorDashboard() {
   const { user } = useAuth();
@@ -59,7 +59,7 @@ export default function CounselorDashboard() {
               <div>
                 <strong>{item.student_name}</strong>
                 <div className="muted">
-                  {format(new Date(item.scheduled_at), 'PPp')} · {item.mode}
+                  {formatDbDate(item.scheduled_at)} · {item.mode}
                 </div>
               </div>
               <span className={`badge ${item.status}`}>{item.status}</span>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { format } from 'date-fns';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
+import { formatDbDate, toSqlDateTime } from '../../utils/dates';
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -50,7 +50,7 @@ export default function ClientDetail() {
     e.preventDefault();
     await api.post(`/clients/${id}/sessions`, {
       ...form,
-      session_date: form.session_date.replace('T', ' ') + ':00'
+      session_date: toSqlDateTime(form.session_date)
     });
     setForm({
       session_date: '',
@@ -175,7 +175,7 @@ export default function ClientDetail() {
           {sessions.length === 0 && <p className="muted">No session notes yet.</p>}
           {sessions.map((session) => (
             <div key={session.id}>
-              <strong>{format(new Date(session.session_date), 'PPp')}</strong>
+              <strong>{formatDbDate(session.session_date)}</strong>
               <div className="muted">
                 {session.session_type} · {session.counselor_name}
               </div>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
+import { formatDbDate } from '../../utils/dates';
 
 export default function StudentAppointments() {
   const [appointments, setAppointments] = useState([]);
@@ -49,7 +49,7 @@ export default function StudentAppointments() {
             {appointments.map((item) => (
               <tr key={item.id}>
                 <td>{item.counselor_name}</td>
-                <td>{format(new Date(item.scheduled_at), 'PPp')}</td>
+                <td>{formatDbDate(item.scheduled_at)}</td>
                 <td>{item.mode}</td>
                 <td>
                   <span className={`badge ${item.status}`}>{item.status}</span>

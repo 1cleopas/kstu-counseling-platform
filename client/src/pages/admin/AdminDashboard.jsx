@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
+import { formatDbDate } from '../../utils/dates';
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
                 <div>
                   <strong>{item.student_name}</strong>
                   <div className="muted">
-                    with {item.counselor_name} · {format(new Date(item.scheduled_at), 'PPp')}
+                    with {item.counselor_name} · {formatDbDate(item.scheduled_at)}
                   </div>
                 </div>
                 <span className={`badge ${item.status}`}>{item.status}</span>

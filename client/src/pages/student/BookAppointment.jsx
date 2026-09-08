@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import PageBanner from '../../components/PageBanner';
-
-function toSqlDateTime(value) {
-  const withSpace = String(value).replace('T', ' ');
-  return withSpace.length === 16 ? `${withSpace}:00` : withSpace;
-}
+import { toSqlDateTime } from '../../utils/dates';
 
 export default function BookAppointment() {
   const navigate = useNavigate();
