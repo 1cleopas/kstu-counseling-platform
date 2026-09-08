@@ -218,6 +218,70 @@ async function resetPassword(req, res) {
   }
 }
 
+async function googleConfig(_req, res) {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  return res.json({ clientId: clientId || null });
+}
+
+async function googleLogin(req, res) {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res.status(503).json({ message: 'Google sign-in is not configured yet' });
+    }
+
+    const credential = req.body.credential;
+    if (!credential) {
+      return res.status(400).json({ message: 'Google credential is required' });
+    }
+
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+    const payload = ticket.getPayload();
+    const email = String(payload?.email || '').trim().toLowerCase();
+
+    if (!email || payload.email_verified === false) {
+      return res.status(401).json({ message: 'Google did not provide a verified email' });
+    }
+
+    const rows = await query('SELECT * FROM users WHERE lower(email) = :email', { email });
+    let user = rows[0];
+
+    if (user && !user.is_active) {
+      return res.status(401).json({ message: 'This account is disabled' });
+    }
+
+    if (!user) {
+      const password_hash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const result = await query(
+        `INSERT INTO users (student_id, full_name, email, password_hash, role, phone, department, programme)
+         VALUES (:student_id, :full_name, :email, :password_hash, :role, :phone, :department, :programme)`,
+        {
+          student_id: `G-${String(payload.sub || '').slice(-10)}`,
+          full_name: payload.name || email.split('@')[0],
+          email,
+          password_hash,
+          role: 'student',
+          phone: null,
+          department: null,
+          programme: null
+        }
+      );
+      await query(`INSERT INTO client_profiles (student_id, status) VALUES (:studentId, 'active')`, {
+        studentId: result.insertId
+      });
+      const created = await query('SELECT * FROM users WHERE id = :id', { id: result.insertId });
+      user = created[0];
+    }
+
+    return res.json({ token: signToken(user), user: publicUser(user) });
+  } catch (error) {
+    console.error('Google login error:', error);
+    return res.status(401).json({ message: 'Google sign-in failed' });
+  }
+}
+
 async function updateProfile(req, res) {
   try {
     const { full_name, phone, department, programme, specialization, bio } = req.body;
@@ -247,4 +311,4 @@ async function updateProfile(req, res) {
   }
 }
 
-module.exports = { register, login, me, updateProfile, forgotPassword, resetPassword };
+module.exports = { register, login, me, updateProfile, forgotPassword, resetPassword, googleConfig, googleLogin };

@@ -56,13 +56,20 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
+  async function loginWithGoogle(credential) {
+    const { data } = await api.post('/auth/google', { credential });
+    localStorage.setItem('kstu_token', data.token);
+    setUser(data.user);
+    return data.user;
+  }
+
   function logout() {
     localStorage.removeItem('kstu_token');
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

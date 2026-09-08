@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import GoogleSignIn from '../components/GoogleSignIn';
 
 export default function Register() {
   const { register } = useAuth();
@@ -40,7 +41,7 @@ export default function Register() {
   return (
     <div className="auth-shell">
       <div className="auth-backdrop" aria-hidden="true" />
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <div className="auth-card">
         <div className="brand">
           <div className="brand-badge">K</div>
           <div>
@@ -51,7 +52,9 @@ export default function Register() {
         <h1>Join the platform</h1>
         <p className="muted">Register as a student or counselor to get started.</p>
         {error && <div className="error">{error}</div>}
-        <div className="form-grid">
+        <GoogleSignIn onSuccess={() => navigate('/app')} onError={setError} />
+        <p className="auth-divider">or register with email</p>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Full name
             <input value={form.full_name} onChange={(e) => update('full_name', e.target.value)} required />
@@ -98,11 +101,11 @@ export default function Register() {
           <button className="btn btn-primary" disabled={loading}>
             {loading ? 'Creating account...' : 'Create account'}
           </button>
-        </div>
+        </form>
         <p className="muted" style={{ marginTop: '1rem' }}>
           Already registered? <Link to="/login">Sign in</Link>
         </p>
-      </form>
+      </div>
     </div>
   );
 }

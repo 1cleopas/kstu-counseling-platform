@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import GoogleSignIn from '../components/GoogleSignIn';
 
 export default function Login() {
   const { login } = useAuth();
@@ -33,7 +34,7 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-backdrop" aria-hidden="true" />
-      <form className="auth-card" onSubmit={handleSubmit}>
+      <div className="auth-card">
         <div className="brand">
           <div className="brand-badge">K</div>
           <div>
@@ -44,7 +45,9 @@ export default function Login() {
         <h1>Welcome back</h1>
         <p className="muted">Access counseling services with your KSTU account.</p>
         {error && <div className="error">{error}</div>}
-        <div className="form-grid">
+        <GoogleSignIn onSuccess={() => navigate('/app')} onError={setError} />
+        <p className="auth-divider">or sign in with email</p>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Email
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
@@ -61,14 +64,14 @@ export default function Login() {
           <button className="btn btn-primary" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
-        </div>
+        </form>
         <p className="muted" style={{ marginTop: '1rem' }}>
           <Link to="/forgot-password">Forgot password?</Link>
         </p>
         <p className="muted" style={{ marginTop: '0.5rem' }}>
           New student? <Link to="/register">Create an account</Link>
         </p>
-      </form>
+      </div>
     </div>
   );
 }

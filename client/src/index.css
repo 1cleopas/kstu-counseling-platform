@@ -547,6 +547,18 @@ textarea {
   border: 1px solid #b9e0c8;
 }
 
+.auth-divider {
+  margin: 1rem 0 0.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.google-signin {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;
